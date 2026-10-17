@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air780EHM 短信 / VUART 控制台</title>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: #16181c; color: #d8dde3; font-size: 14px;
+  overflow: hidden;
+}
+
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; flex-shrink: 0;
+  background: #1e2126; border-bottom: 1px solid #2c3038;
+}
+header .spacer { flex: 1; }
+
+button {
+  background: #2f3540; color: #d8dde3;
+  border: 1px solid #3e4552; border-radius: 6px;
+  padding: 7px 14px; cursor: pointer; font-size: 13px;
+  transition: background .15s, border-color .15s;
+  font-family: inherit;
+}
+button:hover:not(:disabled) { background: #3a4250; border-color: #4a5260; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.btn-primary { background: #2563eb; border-color: #1d4ed8; }
+button.btn-primary:hover:not(:disabled) { background: #3b82f6; }
+button.btn-danger { background: #7f1d1d; border-color: #991b1b; }
+button.btn-danger:hover:not(:disabled) { background: #991b1b; }
+
+.status {
+  padding: 4px 10px; border-radius: 12px; font-size: 12px;
+  background: #3a2a2a; color: #f87171; white-space: nowrap;
+}
+.status.ok { background: #1e3a2a; color: #4ade80; }
+
+.checkbox-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; cursor: pointer; user-select: none;
+}
+
+main {
+  flex: 1; display: flex; gap: 1px;
+  background: #2c3038; min-height: 0;
+}
+.panel {
+  background: #16181c; display: flex; flex-direction: column;
+  min-width: 0; overflow: hidden;
+}
+#cmdPanel { width: 258px; flex-shrink: 0; padding: 12px; overflow-y: auto; }
+#logPanel { flex: 1; min-width: 260px; }
+#smsPanel { width: 390px; flex-shrink: 0; }
+
+.panel h2 {
+  font-size: 12px; color: #8b95a5; margin: 0 0 8px;
+  font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+}
+#cmdPanel h2 { margin-top: 16px; }
+#cmdPanel h2:first-child { margin-top: 0; }
+
+.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.btn-grid button { padding: 8px 4px; font-size: 12px; }
+
+#cmdPanel input,
+#cmdPanel textarea {
+  width: 100%; background: #1e2126; border: 1px solid #2c3038;
+  color: #d8dde3; border-radius: 6px; padding: 8px 10px;
+  font-size: 13px; font-family: inherit; margin-bottom: 6px;
+  resize: vertical;
+}
+#cmdPanel input:focus,
+#cmdPanel textarea:focus { outline: none; border-color: #2563eb; }
+
+#cmdPanel button[data-cmd="SMS_SEND"],
+#cmdPanel button[data-cmd="dial"] { width: 100%; }
+
+/* ---------------- 状态卡片（信号 / 内存） ---------------- */
+.signal-card {
+  background: linear-gradient(180deg, #1c2027 0%, #1a1d21 100%);
+  border: 1px solid #2c3038;
+  border-radius: 8px;
+  padding: 10px 12px 10px;
+  margin-bottom: 12px;
+}
+.signal-card + h2 { margin-top: 4px; }
+
+.signal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.signal-title {
+  font-size: 12px; color: #8b95a5; font-weight: 600;
+  letter-spacing: .5px; text-transform: uppercase;
+}
+.signal-refresh {
+  padding: 1px 7px; font-size: 13px; line-height: 1.4;
+  border-radius: 5px; background: transparent; border-color: transparent;
+  color: #6b7280;
+}
+.signal-refresh:hover:not(:disabled) {
+  background: #2f3540; border-color: #3e4552; color: #d8dde3;
+}
+
+.signal-top {
+  display: flex; align-items: flex-end; gap: 12px;
+  margin-bottom: 10px;
+}
+.signal-bars {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 30px; flex-shrink: 0;
+}
+.signal-bars i {
+  display: block; width: 6px; background: #2c3038;
+  border-radius: 2px; transition: background .25s;
+}
+.signal-bars i:nth-child(1) { height: 8px; }
+.signal-bars i:nth-child(2) { height: 13px; }
+.signal-bars i:nth-child(3) { height: 19px; }
+.signal-bars i:nth-child(4) { height: 24px; }
+.signal-bars i:nth-child(5) { height: 30px; }
+.signal-bars.q-good i.on { background: #4ade80; }
+.signal-bars.q-fair i.on { background: #fbbf24; }
+.signal-bars.q-poor i.on { background: #f87171; }
+
+.signal-csq {
+  display: flex; flex-direction: column; align-items: flex-start;
+  line-height: 1.1; margin-bottom: 1px;
+}
+.signal-csq b {
+  font-size: 18px; color: #e5e7eb; font-variant-numeric: tabular-nums;
+}
+.signal-csq small { font-size: 10px; color: #5c6675; letter-spacing: .5px; }
+
+.signal-metrics { display: flex; flex-direction: column; gap: 5px; }
+.metric { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.metric-label { width: 34px; color: #8b95a5; flex-shrink: 0; }
+.metric-bar {
+  flex: 1; height: 5px; background: #2c3038;
+  border-radius: 3px; overflow: hidden; min-width: 0;
+}
+.metric-fill {
+  height: 100%; width: 0; background: #4b5563;
+  border-radius: 3px; transition: width .35s ease, background .35s ease;
+}
+.metric-val {
+  width: 58px; text-align: right; color: #9ca3af; flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.signal-foot {
+  display: flex; justify-content: space-between; gap: 6px;
+  margin-top: 9px; padding-top: 7px;
+  border-top: 1px dashed #2c3038;
+  font-size: 11px; color: #6b7280;
+}
+.signal-foot #sigUpdated { color: #4b5563; flex-shrink: 0; }
+
+/* ---------------- 内存卡片 ---------------- */
+.mem-list { display: flex; flex-direction: column; gap: 8px; }
+.mem-row { display: flex; align-items: center; gap: 8px; }
+.mem-name {
+  width: 42px; font-size: 11px; color: #8b95a5;
+  flex-shrink: 0; letter-spacing: .3px;
+}
+.mem-bar {
+  flex: 1; height: 6px; background: #2c3038;
+  border-radius: 3px; overflow: hidden; min-width: 0;
+}
+.mem-fill {
+  height: 100%; width: 0; background: #4b5563;
+  border-radius: 3px; transition: width .35s ease, background .35s ease;
+}
+.mem-val {
+  width: 96px; text-align: right; font-size: 11px; color: #9ca3af;
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.mem-foot {
+  margin-top: 9px; padding-top: 7px;
+  border-top: 1px dashed #2c3038;
+  font-size: 11px; color: #6b7280;
+  display: flex; justify-content: space-between; gap: 6px;
+}
+.mem-foot #memUpdated { color: #4b5563; flex-shrink: 0; }
+
+/* ---------------- 日志 / 短信 ---------------- */
+#log {
+  flex: 1; overflow-y: auto; padding: 8px 12px;
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 12px; line-height: 1.6;
+}
+.log-line {
+  display: flex; gap: 8px; padding: 2px 0;
+  border-bottom: 1px solid #1a1d21;
+}
+.log-line .time { color: #5c6675; flex-shrink: 0; }
+.log-line .dir {
+  flex-shrink: 0; width: 34px; text-align: center;
+  border-radius: 3px; font-size: 11px; padding: 0 4px;
+}
+.log-tx  .dir { background: #1e3a5f; color: #60a5fa; }
+.log-rx  .dir { background: #1e4a2e; color: #4ade80; }
+.log-err .dir { background: #4a1e1e; color: #f87171; }
+.log-sys .dir { background: #3a3520; color: #fbbf24; }
+.log-line .msg { flex: 1; word-break: break-all; }
+
+#smsList {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sms-card {
+  background: #1e2126; border: 1px solid #2c3038;
+  border-radius: 8px; padding: 10px 12px;
+  border-left: 3px solid #f59e0b;
+}
+.sms-card.confirmed { border-left-color: #22c55e; }
+.sms-header {
+  display: flex; justify-content: space-between;
+  align-items: baseline; gap: 8px; margin-bottom: 6px;
+}
+.sms-phone { font-weight: 600; color: #93c5fd; font-size: 13px; }
+.sms-time { font-size: 11px; color: #5c6675; }
+.sms-text {
+  white-space: pre-wrap; word-break: break-word;
+  line-height: 1.5; color: #c9d1d9; margin-bottom: 8px; font-size: 13px;
+}
+.sms-footer {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: #5c6675; flex-wrap: wrap;
+}
+.sms-footer .spacer { flex: 1; }
+.sms-footer .btn-small { padding: 3px 8px; font-size: 11px; }
+.tag-ok { color: #4ade80; }
+.badge {
+  display: inline-block; background: #2563eb; color: #fff;
+  border-radius: 10px; padding: 1px 7px; font-size: 11px;
+  min-width: 20px; text-align: center; margin-left: 4px;
+}
+.empty {
+  text-align: center; color: #5c6675; padding: 40px 0; font-size: 13px;
+}
+.hint {
+  padding: 8px 12px; background: #1a1d21; color: #6b7280;
+  font-size: 11px; line-height: 1.6; border-top: 1px solid #2c3038;
+  flex-shrink: 0;
+}
+.hint b { color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<header>
+  <button id="btnConnect">🔌 连接串口</button>
+  <button id="btnDisconnect" disabled>断开</button>
+  <span id="connStatus" class="status">未连接</span>
+  <span class="spacer"></span>
+  <label class="checkbox-label">
+    <input type="checkbox" id="autoConfirm" checked>
+    自动确认 SMS_OK
+  </label>
+  <button id="btnClearHistory" class="btn-danger">清空本地短信</button>
+</header>
+
+<main>
+  <!-- 左：信号 + 内存 + 命令按钮 -->
+  <aside class="panel" id="cmdPanel">
+
+    <!-- ================= 信号卡片 ================= -->
+    <div id="signalCard" class="signal-card">
+      <div class="signal-head">
+        <span class="signal-title">信号</span>
+        <button id="btnRefreshSignal" class="signal-refresh" title="刷新信号（发送 SYS_INFO）">↻</button>
+      </div>
+
+      <div class="signal-top">
+        <div class="signal-bars q-none" id="sigBars">
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="signal-csq">
+          <b id="sigCsq">--</b>
+          <small>CSQ</small>
+        </div>
+      </div>
+
+      <div class="signal-metrics">
+        <div class="metric">
+          <span class="metric-label">RSRP</span>
+          <div class="metric-bar"><div class="metric-fill" id="barRsrp"></div></div>
+          <span class="metric-val" id="valRsrp">--</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">RSRQ</span>
+          <div class="metric-bar"><div class="metric-fill" id="barRsrq"></div></div>
+          <span class="metric-val" id="valRsrq">--</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">SNR</span>
+          <div class="metric-bar"><div class="metric-fill" id="barSnr"></div></div>
+          <span class="metric-val" id="valSnr">--</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">RSSI</span>
+          <div class="metric-bar"><div class="metric-fill" id="barRssi"></div></div>
+          <span class="metric-val" id="valRssi">--</span>
+        </div>
+      </div>
+
+      <div class="signal-foot">
+        <span id="sigNet">网络：--</span>
+        <span id="sigUpdated"></span>
+      </div>
+    </div>
+    <!-- ================= /信号卡片 ================= -->
+
+    <!-- ================= 内存卡片 ================= -->
+    <div id="memCard" class="signal-card">
+      <div class="signal-head">
+        <span class="signal-title">内存</span>
+        <button id="btnRefreshMem" class="signal-refresh" title="刷新内存（发送 SYS_INFO）">↻</button>
+      </div>
+
+      <div class="mem-list">
+        <div class="mem-row" id="memRow_lua">
+          <span class="mem-name">Lua</span>
+          <div class="mem-bar"><div class="mem-fill" id="memFill_lua"></div></div>
+          <span class="mem-val" id="memVal_lua">--</span>
+        </div>
+        <div class="mem-row" id="memRow_sys">
+          <span class="mem-name">SYS</span>
+          <div class="mem-bar"><div class="mem-fill" id="memFill_sys"></div></div>
+          <span class="mem-val" id="memVal_sys">--</span>
+        </div>
+        <div class="mem-row" id="memRow_psram" style="display:none;">
+          <span class="mem-name">PSRAM</span>
+          <div class="mem-bar"><div class="mem-fill" id="memFill_psram"></div></div>
+          <span class="mem-val" id="memVal_psram">--</span>
+        </div>
+      </div>
+
+      <div class="mem-foot">
+        <span id="memHint">已用 / 总量（悬停查看峰值）</span>
+        <span id="memUpdated"></span>
+      </div>
+    </div>
+    <!-- ================= /内存卡片 ================= -->
+
+    <h2>短信命令</h2>
+    <div class="btn-grid">
+      <button data-cmd="SMS_GET">SMS_GET</button>
+      <button data-cmd="SMS_GET_ALL">拉取全部</button>
+      <button data-cmd="SMS_OK">SMS_OK</button>
+      <button data-cmd="SMS_TEST">SMS_TEST</button>
+    </div>
+
+    <h2>系统命令</h2>
+    <div class="btn-grid">
+      <button data-cmd="STATUS">STATUS</button>
+      <button data-cmd="SYS_INFO">SYS_INFO</button>
+      <button data-cmd="SYS_TIME">SYS_TIME 获取</button>
+      <button data-cmd="SYS_TIME_SET">SYS_TIME 校准</button>
+    </div>
+
+    <h2>发送短信</h2>
+    <input id="sendPhone" type="tel" placeholder="手机号 13800138000">
+    <textarea id="sendText" rows="3" placeholder="短信内容（支持中文，自动长短信）"></textarea>
+    <button data-cmd="SMS_SEND" class="btn-primary">SMS_SEND 发送</button>
+
+    <h2>拨打电话</h2>
+    <input id="dialPhone" type="tel" placeholder="手机号">
+    <button data-cmd="dial">dial 拨号</button>
+
+    <h2>校准时间参数</h2>
+    <input id="tzInput" type="number" min="-12" max="12" step="1" value="8" placeholder="时区，默认 +8">
+  </aside>
+
+  <!-- 中：通信日志 -->
+  <section class="panel" id="logPanel">
+    <h2 style="padding:12px 12px 0;">通信日志</h2>
+    <div id="log"></div>
+  </section>
+
+  <!-- 右：本地短信 -->
+  <aside class="panel" id="smsPanel">
+    <h2 style="padding:12px 12px 0;">本地短信 <span id="smsCount" class="badge">0</span></h2>
+    <div id="smsList"></div>
+  </aside>
+</main>
+
+<div class="hint">
+  <b>提示：</b>需使用 Chrome / Edge 89+，页面必须运行在 <b>https://</b> 或 <b>http://localhost</b> 下（file:// 无法使用 Web Serial）。
+  选择串口后连接，若设备未识别请检查 USB 驱动。短信自动保存在浏览器 localStorage，刷新/重开页面仍保留。
+  信号与内存面板数据来自 <b>SYS_INFO</b>，点击各卡片右上角 ↻ 刷新。
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // 常量 & DOM
+  // ============================================================
+  const LS_KEY = 'air780ehm_sms_history_v1';
+  const BAUD_RATE = 115200;
+  const MAX_LOG_LINES = 800;
+
+  const el = {
+    btnConnect:    document.getElementById('btnConnect'),
+    btnDisconnect: document.getElementById('btnDisconnect'),
+    connStatus:    document.getElementById('connStatus'),
+    autoConfirm:   document.getElementById('autoConfirm'),
+    btnClearHistory: document.getElementById('btnClearHistory'),
+    sendPhone:     document.getElementById('sendPhone'),
+    sendText:      document.getElementById('sendText'),
+    dialPhone:     document.getElementById('dialPhone'),
+    tzInput:       document.getElementById('tzInput'),
+    log:           document.getElementById('log'),
+    smsList:       document.getElementById('smsList'),
+    smsCount:      document.getElementById('smsCount'),
+    btnRefreshSignal: document.getElementById('btnRefreshSignal'),
+    btnRefreshMem: document.getElementById('btnRefreshMem'),
+    memUpdated:    document.getElementById('memUpdated'),
+  };
+
+  // ============================================================
+  // 本地短信存储
+  // ============================================================
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return [];
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.warn('读取本地短信失败', e);
+      return [];
+    }
+  }
+
+  function persistHistory() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(smsHistory));
+    } catch (e) {
+      log('ERR', '本地保存失败：' + e.message);
+    }
+  }
+
+  let smsHistory = loadHistory();
+
+  function saveLocalSms(deviceId, phone, text, metas) {
+    const dup = smsHistory.find(m =>
+      m.deviceId === deviceId &&
+      !m.confirmed &&
+      m.phone === phone &&
+      m.text === text
+    );
+    if (dup) return dup;
+
+    const item = {
+      key: Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+      deviceId: deviceId,
+      phone: phone || '未知号码',
+      text: text || '',
+      metas: metas || null,
+      receivedAt: Date.now(),
+      confirmed: false,
+      confirmedAt: null,
+    };
+    smsHistory.unshift(item);
+    persistHistory();
+    return item;
+  }
+
+  function markLocalConfirmed(deviceId) {
+    let changed = false;
+    for (const m of smsHistory) {
+      if (m.deviceId === deviceId && !m.confirmed) {
+        m.confirmed = true;
+        m.confirmedAt = Date.now();
+        changed = true;
+      }
+    }
+    if (changed) persistHistory();
+  }
+
+  // ============================================================
+  // 工具
+  // ============================================================
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '-';
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  function fmtClock(ts) {
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  // 字节数格式化：B / K / M
+  function fmtBytes(n) {
+    if (n === null || n === undefined) return '--';
+    const v = Number(n);
+    if (!isFinite(v)) return '--';
+    if (v >= 1024 * 1024) return (v / 1024 / 1024).toFixed(1) + 'M';
+    if (v >= 1024) return Math.round(v / 1024) + 'K';
+    return v + 'B';
+  }
+
+  // ============================================================
+  // 日志
+  // ============================================================
+  function log(dir, text) {
+    const line = document.createElement('div');
+    line.className = 'log-line log-' + dir.toLowerCase();
+
+    const t = document.createElement('span');
+    t.className = 'time';
+    t.textContent = new Date().toTimeString().slice(0, 8);
+
+    const d = document.createElement('span');
+    d.className = 'dir';
+    d.textContent = dir;
+
+    const m = document.createElement('span');
+    m.className = 'msg';
+    m.textContent = text;
+
+    line.appendChild(t);
+    line.appendChild(d);
+    line.appendChild(m);
+    el.log.appendChild(line);
+
+    while (el.log.children.length > MAX_LOG_LINES) {
+      el.log.removeChild(el.log.firstChild);
+    }
+    el.log.scrollTop = el.log.scrollHeight;
+  }
+
+  // ============================================================
+  // 信号图形
+  // ============================================================
+  const COLOR = {
+    good: '#4ade80',
+    fair: '#fbbf24',
+    poor: '#f87171',
+    idle: '#4b5563',
+  };
+
+  function pctColor(pct) {
+    if (pct >= 66) return COLOR.good;
+    if (pct >= 33) return COLOR.fair;
+    return COLOR.poor;
+  }
+
+  function setFill(id, pct, color) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    pct = Math.max(0, Math.min(100, pct));
+    node.style.width = pct + '%';
+    if (color) node.style.background = color;
+  }
+
+  const NET_STATUS_MAP = {
+    0: '无SIM',
+    1: '开机',
+    2: '待机',
+    3: '找网',
+    4: '已注册',
+    5: '已注册',
+    6: '数据就绪',
+    7: '数据断开',
+    8: '飞行模式',
+    9: '关机中',
+    99: '未知',
+  };
+
+  function netStatusText(s) {
+    if (s === null || s === undefined) return '--';
+    const n = Number(s);
+    if (!Number.isFinite(n)) return String(s);
+    const name = NET_STATUS_MAP[n];
+    return name ? `${name}(${n})` : String(n);
+  }
+
+  function updateSignalUI(info) {
+    if (!info || typeof info !== 'object') return;
+    const net = info.network || {};
+
+    // ---------- CSQ 信号格 ----------
+    const bars = document.getElementById('sigBars');
+    const barItems = bars ? bars.querySelectorAll('i') : [];
+    const csqRaw = net.csq;
+    const csq = (csqRaw === null || csqRaw === undefined || csqRaw === '')
+      ? NaN : Number(csqRaw);
+
+    let active = 0;
+    let quality = 'none';
+
+    if (Number.isFinite(csq) && csq >= 0 && csq <= 31) {
+      if (csq >= 25)      { active = 5; quality = 'good'; }
+      else if (csq >= 20) { active = 4; quality = 'good'; }
+      else if (csq >= 15) { active = 3; quality = 'fair'; }
+      else if (csq >= 10) { active = 2; quality = 'fair'; }
+      else if (csq >= 1)  { active = 1; quality = 'poor'; }
+      else                { active = 0; quality = 'poor'; }
+    }
+
+    if (bars) {
+      bars.className = 'signal-bars q-' + quality;
+      barItems.forEach((node, i) => node.classList.toggle('on', i < active));
+    }
+
+    const csqEl = document.getElementById('sigCsq');
+    if (csqEl) csqEl.textContent = Number.isFinite(csq) ? String(csq) : '--';
+
+    // ---------- 各项指标 ----------
+    const metrics = [
+      { key: 'Rsrp', value: net.rsrp, min: -140, max: -44, unit: 'dBm' },
+      { key: 'Rsrq', value: net.rsrq, min: -20,  max: -3,  unit: 'dB'  },
+      { key: 'Snr',  value: net.snr,  min: -20,  max: 30,  unit: 'dB'  },
+      { key: 'Rssi', value: net.rssi, min: -113, max: -51, unit: 'dBm', altCsq: true },
+    ];
+
+    for (const m of metrics) {
+      const fillId = 'bar' + m.key;
+      const valId = 'val' + m.key;
+      const raw = m.value;
+
+      if (raw === null || raw === undefined || raw === '') {
+        setFill(fillId, 0, COLOR.idle);
+        const vEl = document.getElementById(valId);
+        if (vEl) vEl.textContent = '--';
+        continue;
+      }
+
+      const v = Number(raw);
+      if (!Number.isFinite(v)) {
+        setFill(fillId, 0, COLOR.idle);
+        const vEl = document.getElementById(valId);
+        if (vEl) vEl.textContent = '--';
+        continue;
+      }
+
+      let pct;
+      let label;
+
+      // 部分固件 mobile.rssi() 返回 0~31 的 CSQ 风格值
+      if (m.altCsq && v >= 0 && v <= 31) {
+        pct = (v / 31) * 100;
+        label = v + ' CSQ';
+      } else {
+        pct = ((v - m.min) / (m.max - m.min)) * 100;
+        label = v + ' ' + m.unit;
+      }
+
+      setFill(fillId, pct, pctColor(pct));
+      const vEl = document.getElementById(valId);
+      if (vEl) vEl.textContent = label;
+    }
+
+    // ---------- 网络状态 ----------
+    const netEl = document.getElementById('sigNet');
+    if (netEl) netEl.textContent = '网络：' + netStatusText(net.status);
+
+    const updEl = document.getElementById('sigUpdated');
+    if (updEl) updEl.textContent = fmtClock(Date.now());
+  }
+
+  // ============================================================
+  // 内存图形
+  // ============================================================
+  function applyMemRow(key, data) {
+    const row  = document.getElementById('memRow_' + key);
+    const fill = document.getElementById('memFill_' + key);
+    const val  = document.getElementById('memVal_' + key);
+    if (!row || !fill || !val) return;
+
+    const total = data ? Number(data.total) : NaN;
+    const used  = data ? Number(data.used)  : NaN;
+    const peak  = data ? Number(data.max_used) : NaN;
+
+    const valid = data && isFinite(total) && total > 0 && isFinite(used);
+
+    if (!valid) {
+      // PSRAM 不存在时隐藏整行，其它显示 --
+      if (key === 'psram') {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+        fill.style.width = '0%';
+        fill.style.background = COLOR.idle;
+        val.textContent = '--';
+        row.title = '';
+      }
+      return;
+    }
+
+    row.style.display = '';
+    const pct = Math.max(0, Math.min(100, (used / total) * 100));
+    fill.style.width = pct.toFixed(1) + '%';
+    fill.style.background = pctColor(pct);
+    val.textContent = fmtBytes(used) + '/' + fmtBytes(total);
+
+    let tip = `已用 ${fmtBytes(used)} / 共 ${fmtBytes(total)}，占用 ${pct.toFixed(1)}%`;
+    if (isFinite(peak) && peak > 0) tip += `，峰值 ${fmtBytes(peak)}`;
+    row.title = tip;
+  }
+
+  function updateMemoryUI(info) {
+    if (!info || typeof info !== 'object') return;
+    const mem = info.memory || {};
+
+    applyMemRow('lua', mem.lua);
+    applyMemRow('sys', mem.sys);
+    applyMemRow('psram', mem.psram);
+
+    if (el.memUpdated) el.memUpdated.textContent = fmtClock(Date.now());
+  }
+
+  // ============================================================
+  // 串口
+  // ============================================================
+  let port = null;
+  let isConnected = false;
+  let keepReading = false;
+  let rxBuffer = '';
+  let currentReader = null;
+  const textDecoder = new TextDecoder();
+  let writeChain = Promise.resolve();
+
+  function updateConnUI(connected) {
+    el.btnConnect.disabled = connected;
+    el.btnDisconnect.disabled = !connected;
+    el.connStatus.textContent = connected ? '已连接' : '未连接';
+    el.connStatus.className = 'status' + (connected ? ' ok' : '');
+    document.body.classList.toggle('connected', connected);
+  }
+
+  async function connect() {
+    if (!('serial' in navigator)) {
+      alert('当前浏览器不支持 Web Serial API。\n请使用 Chrome/Edge 89+，并确保页面在 https:// 或 http://localhost 下打开。');
+      return;
+    }
+
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: BAUD_RATE });
+      isConnected = true;
+      keepReading = true;
+      rxBuffer = '';
+      updateConnUI(true);
+      log('SYS', `串口已打开 @${BAUD_RATE}`);
+
+      readLoop();
+
+      // 连接后自动拉取一次系统信息，刷新信号 / 内存图形
+      setTimeout(() => {
+        if (isConnected) sendCmd({ cmd: 'SYS_INFO' });
+      }, 600);
+    } catch (e) {
+      console.error(e);
+      log('ERR', '打开串口失败：' + (e && e.message ? e.message : e));
+      port = null;
+      isConnected = false;
+      updateConnUI(false);
+    }
+  }
+
+  async function readLoop() {
+    while (keepReading && port && port.readable) {
+      const reader = port.readable.getReader();
+      currentReader = reader;
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value && value.length) {
+            rxBuffer += textDecoder.decode(value, { stream: true });
+            processBuffer();
+          }
+        }
+      } catch (e) {
+        if (keepReading) {
+          log('ERR', '串口读取错误：' + (e && e.message ? e.message : e));
+        }
+      } finally {
+        try { reader.releaseLock(); } catch (_) {}
+        currentReader = null;
+      }
+    }
+  }
+
+  async function disconnect() {
+    keepReading = false;
+
+    try {
+      if (currentReader) {
+        await currentReader.cancel().catch(() => {});
+      }
+    } catch (_) {}
+
+    await new Promise(r => setTimeout(r, 80));
+
+    try {
+      if (port) await port.close();
+    } catch (e) {
+      console.warn('关闭串口异常', e);
+    }
+
+    port = null;
+    isConnected = false;
+    currentReader = null;
+    updateConnUI(false);
+    log('SYS', '串口已断开');
+  }
+
+  function sendRaw(text) {
+    const task = writeChain.then(async () => {
+      if (!port || !port.writable) throw new Error('串口未连接');
+      const writer = port.writable.getWriter();
+      try {
+        await writer.write(new TextEncoder().encode(text));
+      } finally {
+        try { writer.releaseLock(); } catch (_) {}
+      }
+    });
+    writeChain = task.catch(() => {});
+    return task;
+  }
+
+  async function sendCmd(obj) {
+    if (!isConnected) {
+      log('ERR', '串口未连接，无法发送命令');
+      return;
+    }
+    const line = JSON.stringify(obj);
+    log('TX', line);
+    try {
+      await sendRaw(line + '\n');
+    } catch (e) {
+      log('ERR', '发送失败：' + (e && e.message ? e.message : e));
+    }
+  }
+
+  // ============================================================
+  // 接收解析
+  // ============================================================
+  function processBuffer() {
+    let idx;
+    while ((idx = rxBuffer.indexOf('\n')) >= 0) {
+      const line = rxBuffer.slice(0, idx).trim();
+      rxBuffer = rxBuffer.slice(idx + 1);
+      if (line) handleLine(line);
+    }
+    if (rxBuffer.length > 65536) {
+      log('ERR', '接收缓冲区溢出，已清空');
+      rxBuffer = '';
+    }
+  }
+
+  function handleLine(line) {
+    log('RX', line);
+    let msg;
+    try {
+      msg = JSON.parse(line);
+    } catch (e) {
+      log('ERR', 'JSON 解析失败');
+      return;
+    }
+    handleMessage(msg);
+  }
+
+  // ============================================================
+  // 请求 - 响应配对
+  // ============================================================
+  let pendingGetResolve = null;
+
+  function requestSmsGet() {
+    return new Promise((resolve) => {
+      if (pendingGetResolve) {
+        resolve(null);
+        return;
+      }
+      pendingGetResolve = resolve;
+
+      sendCmd({ cmd: 'SMS_GET' });
+
+      setTimeout(() => {
+        if (pendingGetResolve === resolve) {
+          pendingGetResolve = null;
+          resolve(null);
+        }
+      }, 5000);
+    });
+  }
+
+  let pulling = false;
+
+  async function pullAll() {
+    if (pulling) return;
+    if (!isConnected) {
+      log('ERR', '请先连接串口');
+      return;
+    }
+    pulling = true;
+    try {
+      for (let i = 0; i < 200; i++) {
+        const res = await requestSmsGet();
+        if (!res) {
+          log('ERR', 'SMS_GET 超时，停止拉取');
+          break;
+        }
+        if (!res.success || !res.found) break;
+        if (!el.autoConfirm.checked) break;
+      }
+    } finally {
+      pulling = false;
+    }
+  }
+
+  // ============================================================
+  // 事件分发
+  // ============================================================
+  function handleMessage(msg) {
+    const ev = msg.event;
+
+    switch (ev) {
+
+      case 'READY':
+        log('SYS', `设备就绪：${msg.project || ''} v${msg.version || ''} (${msg.interface || ''})`);
+        break;
+
+      case 'ERROR':
+        log('ERR', `[${msg.code || ''}] ${msg.message || ''}`);
+        break;
+
+      // ---------- 短信 ----------
+      case 'SMS_STORED':
+        log('SYS', `设备已缓存短信 id=${msg.id}`);
+        if (el.autoConfirm.checked) pullAll();
+        break;
+
+      case 'SMS_STORE_RESULT':
+        if (!msg.success) log('ERR', '短信存储失败：' + (msg.code || ''));
+        break;
+
+      case 'SMS_NEW':
+        if (el.autoConfirm.checked) pullAll();
+        break;
+
+      case 'SMS_GET_RESULT':
+        handleGetResult(msg);
+        break;
+
+      case 'SMS_OK_RESULT':
+        handleOkResult(msg);
+        break;
+
+      case 'SMS_TEST_RESULT':
+        if (msg.success) {
+          log('SYS', `模拟短信已生成 id=${msg.id}`);
+          if (el.autoConfirm.checked) pullAll();
+        } else {
+          log('ERR', 'SMS_TEST 失败：' + (msg.code || ''));
+        }
+        break;
+
+      case 'SMS_SEND_RESULT':
+        log(msg.success ? 'SYS' : 'ERR', msg.message || (msg.success ? '发送成功' : '发送失败'));
+        break;
+
+      // ---------- 系统 ----------
+      case 'SYS_TIME_RESULT':
+        if (msg.success) {
+          log('SYS', `设备时间：${msg.time || '-'}（时区 ${msg.timezone != null ? msg.timezone : '-'}）`);
+        } else {
+          log('ERR', 'SYS_TIME 失败：' + (msg.message || ''));
+        }
+        break;
+
+      case 'SYS_INFO_RESULT':
+        if (msg.info) {
+          updateSignalUI(msg.info);
+          updateMemoryUI(msg.info);
+          console.log('SYS_INFO:', msg.info);
+
+          const i = msg.info;
+          const mem = i.memory || {};
+          const luaMem = mem.lua || {};
+          try {
+            log('SYS',
+              `型号=${i.hardware && i.hardware.model}` +
+              ` 固件=${i.firmware && i.firmware.version}` +
+              ` IMEI=${i.identity && i.identity.imei}` +
+              ` CSQ=${i.network && i.network.csq}` +
+              ` 内存Lua=${fmtBytes(luaMem.used)}/${fmtBytes(luaMem.total)}`
+            );
+          } catch (_) {}
+        } else {
+          log('ERR', 'SYS_INFO 返回内容为空');
+        }
+        break;
+
+      case 'STATUS_RESULT':
+        log('SYS', `短信=${msg.sms_count} 未取=${msg.sms_unfetched} 待确认=${msg.sms_pending} 发送中=${msg.sms_send_busy} 网络=${msg.network_status}`);
+        break;
+
+      // ---------- 电话 ----------
+      case 'INCOMINGCALL':
+        log('SYS', `📞 来电：${msg.phone}`);
+        break;
+
+      case 'dial':
+        log(msg.success ? 'SYS' : 'ERR', `拨号 ${msg.phone} ${msg.success ? '已发起' : '失败'}`);
+        break;
+
+      case 'hangUp':
+        log('SYS', `📴 挂断 ${msg.phone}，通话时长 ${msg.duration}s`);
+        break;
+
+      default:
+        log('SYS', '未处理事件：' + ev);
+    }
+  }
+
+  function handleGetResult(msg) {
+    if (msg.success && msg.found) {
+      saveLocalSms(msg.id, msg.phone, msg.text, msg.metas);
+      renderSmsList();
+      log('SYS', `收到短信 id=${msg.id} 来自 ${msg.phone}`);
+
+      if (el.autoConfirm.checked) {
+        sendCmd({ cmd: 'SMS_OK', id: msg.id });
+      }
+    } else if (msg.message) {
+      log('SYS', msg.message);
+    }
+
+    if (pendingGetResolve) {
+      const r = pendingGetResolve;
+      pendingGetResolve = null;
+      r(msg);
+    }
+  }
+
+  function handleOkResult(msg) {
+    if (msg.success) {
+      markLocalConfirmed(msg.id);
+      log('SYS', `短信 id=${msg.id} 已确认删除`);
+    } else {
+      log('ERR', `SMS_OK 失败：${msg.message || ''}`);
+      if (msg.message && msg.message.indexOf('不存在') >= 0) {
+        markLocalConfirmed(msg.id);
+      }
+    }
+    renderSmsList();
+  }
+
+  // ============================================================
+  // 渲染本地短信
+  // ============================================================
+  function renderSmsList() {
+    el.smsCount.textContent = smsHistory.length;
+    el.smsList.innerHTML = '';
+
+    if (smsHistory.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = '暂无本地短信记录';
+      el.smsList.appendChild(empty);
+      return;
+    }
+
+    for (const sms of smsHistory) {
+      const card = document.createElement('div');
+      card.className = 'sms-card' + (sms.confirmed ? ' confirmed' : '');
+
+      const header = document.createElement('div');
+      header.className = 'sms-header';
+      header.innerHTML =
+        `<span class="sms-phone">${escapeHtml(sms.phone)}</span>` +
+        `<span class="sms-time">${formatTime(sms.receivedAt)}</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'sms-text';
+      body.textContent = sms.text;
+
+      const footer = document.createElement('div');
+      footer.className = 'sms-footer';
+
+      const idTag = document.createElement('span');
+      idTag.textContent = `设备ID: ${sms.deviceId}`;
+      footer.appendChild(idTag);
+
+      const spacer = document.createElement('span');
+      spacer.className = 'spacer';
+      footer.appendChild(spacer);
+
+      if (!sms.confirmed) {
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn-small';
+        okBtn.textContent = 'SMS_OK 确认';
+        okBtn.onclick = () => {
+          if (!isConnected) { log('ERR', '请先连接串口'); return; }
+          sendCmd({ cmd: 'SMS_OK', id: sms.deviceId });
+        };
+        footer.appendChild(okBtn);
+      } else {
+        const tag = document.createElement('span');
+        tag.className = 'tag-ok';
+        tag.textContent = '已确认';
+        footer.appendChild(tag);
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-small btn-danger';
+      delBtn.textContent = '删除';
+      delBtn.onclick = () => {
+        if (!confirm('从浏览器本地删除这条短信？\n（不会影响设备端）')) return;
+        smsHistory = smsHistory.filter(m => m.key !== sms.key);
+        persistHistory();
+        renderSmsList();
+      };
+      footer.appendChild(delBtn);
+
+      card.appendChild(header);
+      card.appendChild(body);
+      card.appendChild(footer);
+      el.smsList.appendChild(card);
+    }
+  }
+
+  // ============================================================
+  // 命令按钮
+  // ============================================================
+  async function handleCommandButton(cmd) {
+    if (!isConnected) {
+      log('ERR', '请先连接串口');
+      return;
+    }
+
+    switch (cmd) {
+      case 'SMS_GET':
+        if (pendingGetResolve) {
+          log('SYS', '正在请求中，请稍候…');
+          return;
+        }
+        requestSmsGet();
+        break;
+
+      case 'SMS_GET_ALL':
+        pullAll();
+        break;
+
+      case 'SMS_OK': {
+        const target = smsHistory.find(m => !m.confirmed);
+        if (!target) {
+          log('ERR', '没有未确认的短信');
+          return;
+        }
+        sendCmd({ cmd: 'SMS_OK', id: target.deviceId });
+        break;
+      }
+
+      case 'SMS_TEST':
+        sendCmd({ cmd: 'SMS_TEST' });
+        break;
+
+      case 'SMS_SEND': {
+        const phone = el.sendPhone.value.trim();
+        const text = el.sendText.value;
+        if (!phone) { log('ERR', '请输入手机号'); return; }
+        if (!text.trim()) { log('ERR', '请输入短信内容'); return; }
+        sendCmd({ cmd: 'SMS_SEND', phone: phone, text: text });
+        break;
+      }
+
+      case 'STATUS':
+        sendCmd({ cmd: 'STATUS' });
+        break;
+
+      case 'SYS_INFO':
+        sendCmd({ cmd: 'SYS_INFO' });
+        break;
+
+      case 'SYS_TIME':
+        sendCmd({ cmd: 'SYS_TIME' });
+        break;
+
+      case 'SYS_TIME_SET': {
+        const tzRaw = el.tzInput.value.trim();
+        let tz;
+        if (tzRaw === '') {
+          tz = -Math.round(new Date().getTimezoneOffset() / 60);
+        } else {
+          tz = parseInt(tzRaw, 10);
+        }
+        if (isNaN(tz) || tz < -12 || tz > 12) {
+          log('ERR', '时区必须是 -12 到 12 之间的整数');
+          return;
+        }
+        const rtc = Math.floor(Date.now() / 1000);
+        sendCmd({ cmd: 'SYS_TIME', rtc: rtc, timezone: tz });
+        break;
+      }
+
+      case 'dial': {
+        const phone = el.dialPhone.value.trim();
+        if (!phone) { log('ERR', '请输入要拨打的手机号'); return; }
+        sendCmd({ cmd: 'dial', phone: phone });
+        break;
+      }
+
+      default:
+        sendCmd({ cmd: cmd });
+    }
+  }
+
+  // ============================================================
+  // 事件绑定
+  // ============================================================
+  el.btnConnect.addEventListener('click', connect);
+  el.btnDisconnect.addEventListener('click', disconnect);
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    handleCommandButton(btn.dataset.cmd);
+  });
+
+  el.btnRefreshSignal.addEventListener('click', () => {
+    if (!isConnected) {
+      log('ERR', '请先连接串口');
+      return;
+    }
+    sendCmd({ cmd: 'SYS_INFO' });
+  });
+
+  el.btnRefreshMem.addEventListener('click', () => {
+    if (!isConnected) {
+      log('ERR', '请先连接串口');
+      return;
+    }
+    sendCmd({ cmd: 'SYS_INFO' });
+  });
+
+  el.btnClearHistory.addEventListener('click', () => {
+    if (smsHistory.length === 0) return;
+    if (!confirm(`确定清空本地 ${smsHistory.length} 条短信记录吗？此操作不可恢复。`)) return;
+    smsHistory = [];
+    persistHistory();
+    renderSmsList();
+    log('SYS', '本地短信记录已清空');
+  });
+
+  window.addEventListener('beforeunload', () => {
+    try {
+      if (port) {
+        if (currentReader) currentReader.cancel().catch(() => {});
+        setTimeout(() => { try { port.close(); } catch (_) {} }, 0);
+      }
+    } catch (_) {}
+  });
+
+  // ============================================================
+  // 初始化
+  // ============================================================
+  updateConnUI(false);
+  renderSmsList();
+
+  if (!('serial' in navigator)) {
+    log('ERR', '当前环境不支持 Web Serial API，请使用 Chrome/Edge 并通过 http://localhost 访问');
+  } else {
+    log('SYS', '就绪，请点击「连接串口」选择设备（115200 8N1）');
+  }
+
+})();
+</script>
+</body>
+</html>
