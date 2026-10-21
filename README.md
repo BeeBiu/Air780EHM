@@ -7,6 +7,7 @@
 | windows电脑 | 本地记录+curl转发电子邮件，配好电子邮件能收到来电提醒 |
 | USB版Air780EHM硬件  | 固件建议选择64位 101号 LuatOS-SoC_V2050_Air780EHM 代码基于此版本固件开发 |
 | 串口程序  | 可以直接使用本项目提供的软件，如果不想转发邮件，直接取消打勾就行，其中本地log记录是强制的无法关闭 |
+| 串口 网页版  | [**beebiu.github.io/Air780EHM/**](https://beebiu.github.io/Air780EHM/)（仅提供基础调试功能） |
 
 
 - 官方固件：https://docs.openluat.com/air780epm/luatos/firmware/780ehm_version/
@@ -18,10 +19,6 @@
 > 开发板的短信均保存在内存里，设备断电就会丢失，因此先调试好再插卡使用，避免开发板已经开始接收短信而忘记提取
 >
 > 关于email的授权码，需要到POP3/SMTP服务里开启，已测试163、139、qq这些邮箱工作正常
-
-# 网页版串口工具（仅提供基础调试功能）
-
-> [**访问网页版**](https://beebiu.github.io/Air780EHM/)
 
 # 串口程序可自行开发，也可以使用本项目提供的软件，仅支持转发到email
 
